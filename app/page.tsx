@@ -60,6 +60,8 @@ const Gameday = () => {
   const [gameId, setGameId] = useState('');
   const [isCreator, setIsCreator] = useState(false);
   const [joinId, setJoinId] = useState('');
+  const [betAmount, setBetAmount] = useState(0);
+  const [isBetSet, setIsBetSet] = useState(false);
 
   const createGame = () => {
     const id = generateGameId();
@@ -70,6 +72,11 @@ const Gameday = () => {
   const joinGame = () => {
     setGameId(joinId);
     setIsCreator(false);
+  };
+
+  const handleBetSelection = (amount) => {
+    setBetAmount(amount);
+    setIsBetSet(true);
   };
 
   return (
@@ -111,13 +118,49 @@ const Gameday = () => {
           </div>
         </div>
       )}
-      {gameId && isCreator && (
+      {gameId && isCreator && !isBetSet && (
         <div>
           <p>Game ID: <strong>{gameId}</strong></p>
           <p>Share this ID with another player to join!</p>
+          <p>Select Bet Amount:</p>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '10px'}}>
+            <button onClick={() => handleBetSelection(1)} style={buttonStyle}>
+              $1
+            </button>
+            <button onClick={() => handleBetSelection(5)} style={buttonStyle}>
+              $5
+            </button>
+            <button onClick={() => handleBetSelection(10)} style={buttonStyle}>
+              $10
+            </button>
+          </div>
+          <div style={{ marginTop: '10px' }}>
+            <input
+              type="number"
+              placeholder="Custom Amount"
+              onChange={(e) => handleBetSelection(Number(e.target.value))}
+              style={inputStyle}
+            />
+          </div>
         </div>
       )}
-      {gameId && !isCreator && <p>Joined Game ID: {gameId}</p>}
+      {gameId && isCreator && isBetSet && (
+        <div>
+          <p>GameID: <strong>{gameId}</strong></p>
+          <p>Selected Bet Amount: <strong>${betAmount}</strong></p>
+          <p>Share this ID with another player to join!</p>
+        </div>
+      )}
+      {gameId && !isCreator && (
+        <div>
+          <p>Joined Game ID: {gameId}</p>
+          {isBetSet ? (
+            <p>Bet Amount: <strong>${betAmount}</strong></p>
+          ) :(
+            <p>Waiting for the creator to select a bet amount...</p>
+          )}
+        </div>
+      )}
     </div>
   );
 };
