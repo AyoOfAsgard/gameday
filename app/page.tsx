@@ -74,7 +74,7 @@ const Gameday = () => {
     setIsCreator(false);
   };
 
-  const handleBetSelection = (amount) => {
+  const handleBetSelection = (amount: number) => {
     setBetAmount(amount);
     setIsBetSet(true);
   };
