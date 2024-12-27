@@ -35,6 +35,27 @@ const generateGameId = () => {
   return Math.random().toString(36).substring(2, 6);
 };
 
+const buttonStyle = {
+  backgroundColor: '#FFA500', // Light Orange
+  color: 'white',
+  padding: '12px 24px',
+  borderRadius: '8px',
+  border: 'none',
+  cursor: 'pointer',
+  fontSize: '16px',
+  fontWeight: 500,
+  transition: 'background-color 0.2s'
+};
+
+const inputStyle = {
+  padding: '10px',
+  borderRadius: '6px',
+  border: '1px solid #E5E7EB',
+  marginBottom: '10px',
+  width: '200px',
+  fontSize: '16px'
+};
+
 const Gameday = () => {
   const [gameId, setGameId] = useState('');
   const [isCreator, setIsCreator] = useState(false);
@@ -69,7 +90,7 @@ const Gameday = () => {
           gap: '20px',
           alignItems: 'center'
         }}>
-          <button onClick={createGame}>
+          <button onClick={createGame} style={buttonStyle}>
             Create Game
           </button>
           <div style={{
@@ -82,8 +103,11 @@ const Gameday = () => {
               placeholder="Enter Game ID"
               value={joinId}
               onChange={(e) => setJoinId(e.target.value)}
+              style={inputStyle}
             />
-            <button onClick={joinGame}>Join Game</button>
+            <button onClick={joinGame} style={buttonStyle}>
+              Join Game
+            </button>
           </div>
         </div>
       )}
