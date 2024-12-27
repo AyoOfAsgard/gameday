@@ -1,13 +1,27 @@
 'use client'
 
 import '@rainbow-me/rainbowkit/styles.css';
-import { useState} from 'react';
+import { useEffect, useState } from 'react';
 import { getDefaultConfig, RainbowKitProvider} from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { Socket } from 'socket.io-client';
+import io from 'socket.io-client';
 
+let socket: Socket;
+
+// Initialize socket connection once
+const initSocket = () => {
+  if (!socket) {
+    socket = io('', {
+      path: '/api/socket',
+    });
+    console.log('Socket initialized');
+  }
+  return socket;
+};
 
 const config = getDefaultConfig({
   appName: 'Gameday',
@@ -17,6 +31,52 @@ const config = getDefaultConfig({
 });
 
 const queryClient = new QueryClient();
+
+// Custom hook for socket management
+const useSocket = (gameId: string) => {
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [betAmount, setBetAmount] = useState(0);
+  const [isBetSet, setIsBetSet] = useState(false);
+
+  useEffect(() => {
+    const newSocket = io('', {
+      path: '/api/socket',
+    });
+
+    setSocket(newSocket);
+
+    if (gameId) {
+      console.log('Joining game room:', gameId);
+      newSocket.emit('join-game', gameId);
+    }
+
+    newSocket.on('connect', () => {
+      console.log('Socket connected with ID:', newSocket.id);
+    });
+
+    newSocket.on('update-bet', (data) => {
+      console.log('Received bet update:', data);
+      setBetAmount(data.betAmount);
+      setIsBetSet(true);
+    });
+
+    return () => {
+      console.log('Cleaning up socket');
+      newSocket.disconnect();
+    };
+  }, [gameId]);
+
+  const sendBet = (amount: number) => {
+    if (socket) {
+      console.log('Sending bet:', amount, 'for game:', gameId);
+      socket.emit('set-bet', { gameId, betAmount: amount });
+      setBetAmount(amount);
+      setIsBetSet(true);
+    }
+  };
+
+  return { betAmount, isBetSet, sendBet };
+};
 
 export default function Home() {
   return (
@@ -60,8 +120,8 @@ const Gameday = () => {
   const [gameId, setGameId] = useState('');
   const [isCreator, setIsCreator] = useState(false);
   const [joinId, setJoinId] = useState('');
-  const [betAmount, setBetAmount] = useState(0);
-  const [isBetSet, setIsBetSet] = useState(false);
+  
+  const { betAmount, isBetSet, sendBet } = useSocket(gameId);
 
   const createGame = () => {
     const id = generateGameId();
@@ -70,13 +130,13 @@ const Gameday = () => {
   };
 
   const joinGame = () => {
+    console.log('Joining game with ID:', joinId);
     setGameId(joinId);
     setIsCreator(false);
   };
 
   const handleBetSelection = (amount: number) => {
-    setBetAmount(amount);
-    setIsBetSet(true);
+    sendBet(amount);
   };
 
   return (
