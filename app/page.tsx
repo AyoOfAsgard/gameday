@@ -34,40 +34,38 @@ const queryClient = new QueryClient();
 
 // Custom hook for socket management
 const useSocket = (gameId: string) => {
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [betAmount, setBetAmount] = useState(0);
   const [isBetSet, setIsBetSet] = useState(false);
 
   useEffect(() => {
-    const newSocket = io('', {
-      path: '/api/socket',
+    // Use the global socket instance
+    const currentSocket = initSocket();
+
+    // Add connection listener
+    currentSocket.on('connect', () => {
+      console.log('Socket connected with ID:', currentSocket.id);
+      
+      // Join game room after connection
+      if (gameId) {
+        console.log('Joining game room:', gameId);
+        currentSocket.emit('join-game', gameId);
+      }
     });
 
-    setSocket(newSocket);
-
-    if (gameId) {
-      console.log('Joining game room:', gameId);
-      newSocket.emit('join-game', gameId);
-    }
-
-    newSocket.on('connect', () => {
-      console.log('Socket connected with ID:', newSocket.id);
-    });
-
-    newSocket.on('update-bet', (data) => {
+    currentSocket.on('update-bet', (data) => {
       console.log('Received bet update:', data);
       setBetAmount(data.betAmount);
       setIsBetSet(true);
     });
 
     return () => {
-      console.log('Cleaning up socket');
-      newSocket.disconnect();
+      currentSocket.off('connect');
+      currentSocket.off('update-bet');
     };
   }, [gameId]);
 
   const sendBet = (amount: number) => {
-    if (socket) {
+    if (socket && gameId) {
       console.log('Sending bet:', amount, 'for game:', gameId);
       socket.emit('set-bet', { gameId, betAmount: amount });
       setBetAmount(amount);
@@ -224,4 +222,3 @@ const Gameday = () => {
     </div>
   );
 };
-
