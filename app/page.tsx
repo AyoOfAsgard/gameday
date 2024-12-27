@@ -31,7 +31,7 @@ export default function Home() {
 }
 
 
-export const generateGameId = () => {
+const generateGameId = () => {
   return Math.random().toString(36).substring(2, 6);
 };
 
@@ -80,3 +80,4 @@ const Gameday = () => {
     </div>
   );
 };
+
