@@ -52,14 +52,31 @@ const Gameday = () => {
   };
 
   return (
-    <div>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+      gap: '20px',
+      textAlign: 'center'
+    }}>
       <ConnectButton label="Sign in" />
       {!gameId && (
-        <div>
-          <button onClick={createGame} style={{ marginTop: '20px' }}>
-          Create Game
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          alignItems: 'center'
+        }}>
+          <button onClick={createGame}>
+            Create Game
           </button>
-          <div style={{ marginTop: '20px' }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
             <input
               type="text"
               placeholder="Enter Game ID"
