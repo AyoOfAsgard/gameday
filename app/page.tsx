@@ -12,7 +12,7 @@ import io from 'socket.io-client';
 
 let socket: Socket;
 
-// Initialize socket connection once
+
 const initSocket = () => {
   if (!socket) {
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000';
@@ -52,11 +52,15 @@ const calculateWinner = (board: (string | null)[][]) => {
   return null;
 };
 
+
+type Board = (string | null)[][];
+
 const useSocket = (gameId: string) => {
-  const [board, setBoard] = useState([
+  
+  const [board, setBoard] = useState<Board>([
     [null, null, null],
     [null, null, null],
-    [null, null, null],
+    [null, null, null]
   ]);
   const [currentPlayer, setCurrentPlayer] = useState('X');
   const [winner, setWinner] = useState<string | null>(null);
@@ -68,7 +72,8 @@ const useSocket = (gameId: string) => {
       socket.emit('join-game', gameId);
 
       socket.on('update-board', ({ boardState, currentTurn, winner }) => {
-        setBoard(boardState);
+        
+        setBoard(boardState as Board);
         setCurrentPlayer(currentTurn);
         setWinner(winner);
       });
