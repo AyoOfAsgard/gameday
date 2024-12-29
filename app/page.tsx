@@ -15,10 +15,13 @@ let socket: Socket;
 // Initialize socket connection once
 const initSocket = () => {
   if (!socket) {
-    socket = io('', {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000';
+    socket = io(socketUrl, {
       path: '/api/socket',
+      withCredentials: true,
+      transports: ['websocket', 'polling']
     });
-    console.log('Socket initialized');
+    console.log('Socket initialized with URL:', socketUrl);
   }
   return socket;
 };
@@ -32,49 +35,77 @@ const config = getDefaultConfig({
 
 const queryClient = new QueryClient();
 
-// Custom hook for socket management
+const calculateWinner = (board: (string | null)[][]) => {
+  const lines = [
+    ...board,
+    ...board[0].map((_, col) => board.map((row) => row[col])),
+    [board[0][0], board[1][1], board[2][2]],
+    [board[0][2], board[1][1], board[2][0]],
+  ];
+
+  for (const line of lines) {
+    if (line.every(cell => cell === 'X')) return 'X';
+    if (line.every(cell => cell === 'O')) return 'O';
+  }
+
+  if (board.flat().every(cell => cell !== null)) return 'Draw';
+  return null;
+};
+
 const useSocket = (gameId: string) => {
-  const [betAmount, setBetAmount] = useState(0);
-  const [isBetSet, setIsBetSet] = useState(false);
+  const [board, setBoard] = useState([
+    [null, null, null],
+    [null, null, null],
+    [null, null, null],
+  ]);
+  const [currentPlayer, setCurrentPlayer] = useState('X');
+  const [winner, setWinner] = useState<string | null>(null);
 
   useEffect(() => {
-    // Use the global socket instance
-    const currentSocket = initSocket();
+    const socket = initSocket();
 
-    // Add connection listener
-    currentSocket.on('connect', () => {
-      console.log('Socket connected with ID:', currentSocket.id);
-      
-      // Join game room after connection
-      if (gameId) {
-        console.log('Joining game room:', gameId);
-        currentSocket.emit('join-game', gameId);
-      }
-    });
+    if (gameId) {
+      socket.emit('join-game', gameId);
 
-    currentSocket.on('update-bet', (data) => {
-      console.log('Received bet update:', data);
-      setBetAmount(data.betAmount);
-      setIsBetSet(true);
-    });
+      socket.on('update-board', ({ boardState, currentTurn, winner }) => {
+        setBoard(boardState);
+        setCurrentPlayer(currentTurn);
+        setWinner(winner);
+      });
+    }
 
     return () => {
-      currentSocket.off('connect');
-      currentSocket.off('update-bet');
+      socket.off('update-board');
+      socket.emit('leave-game', gameId);
     };
   }, [gameId]);
 
-  const sendBet = (amount: number) => {
-    if (socket && gameId) {
-      console.log('Sending bet:', amount, 'for game:', gameId);
-      socket.emit('set-bet', { gameId, betAmount: amount });
-      setBetAmount(amount);
-      setIsBetSet(true);
+  const makeMove = (row: number, col: number) => {
+    if (!board[row][col] && !winner) {
+      const updatedBoard = board.map((r, i) =>
+        i === row ? r.map((cell, j) => (j === col ? currentPlayer : cell)) : r
+      );
+
+      const nextTurn = currentPlayer === 'X' ? 'O' : 'X';
+
+      const winner = calculateWinner(updatedBoard);
+      setBoard(updatedBoard);
+      setCurrentPlayer(nextTurn);
+      setWinner(winner);
+
+      initSocket().emit('make-move', {
+        gameId,
+        boardState: updatedBoard,
+        currentTurn: nextTurn,
+        winner,
+      });
     }
   };
 
-  return { betAmount, isBetSet, sendBet };
+  return { board, currentPlayer, winner, makeMove };
 };
+
+
 
 export default function Home() {
   return (
@@ -116,106 +147,86 @@ const inputStyle = {
 
 const Gameday = () => {
   const [gameId, setGameId] = useState('');
-  const [isCreator, setIsCreator] = useState(false);
   const [joinId, setJoinId] = useState('');
-  
-  const { betAmount, isBetSet, sendBet } = useSocket(gameId);
+  const { board, currentPlayer, winner, makeMove } = useSocket(gameId);
 
   const createGame = () => {
     const id = generateGameId();
     setGameId(id);
-    setIsCreator(true);
   };
 
   const joinGame = () => {
-    console.log('Joining game with ID:', joinId);
     setGameId(joinId);
-    setIsCreator(false);
   };
 
-  const handleBetSelection = (amount: number) => {
-    sendBet(amount);
+  const resetGame = () => {
+    setGameId('');
+    initSocket().emit('reset-game', { gameId });
+  };
+
+  const handleCellClick = (row: number, col: number) => {
+    if (winner || board[row][col]) return; 
+    makeMove(row, col);
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      gap: '20px',
-      textAlign: 'center'
-    }}>
+    <div style={{ textAlign: 'center', padding: '20px' }}>
       <ConnectButton label="Sign in" />
       {!gameId && (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px',
-          alignItems: 'center'
-        }}>
+        <div>
           <button onClick={createGame} style={buttonStyle}>
             Create Game
           </button>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
-          }}>
-            <input
-              type="text"
-              placeholder="Enter Game ID"
-              value={joinId}
-              onChange={(e) => setJoinId(e.target.value)}
-              style={inputStyle}
-            />
-            <button onClick={joinGame} style={buttonStyle}>
-              Join Game
-            </button>
-          </div>
+          <input
+            type="text"
+            placeholder="Enter Game ID"
+            value={joinId}
+            onChange={(e) => setJoinId(e.target.value)}
+            style={inputStyle}
+          />
+          <button onClick={joinGame} style={buttonStyle}>
+            Join Game
+          </button>
         </div>
       )}
-      {gameId && isCreator && !isBetSet && (
+      {gameId && (
         <div>
-          <p>Game ID: <strong>{gameId}</strong></p>
-          <p>Share this ID with another player to join!</p>
-          <p>Select Bet Amount:</p>
-          <div style={{ display: 'flex', gap: '10px', marginTop: '10px'}}>
-            <button onClick={() => handleBetSelection(1)} style={buttonStyle}>
-              $1
-            </button>
-            <button onClick={() => handleBetSelection(5)} style={buttonStyle}>
-              $5
-            </button>
-            <button onClick={() => handleBetSelection(10)} style={buttonStyle}>
-              $10
-            </button>
-          </div>
-          <div style={{ marginTop: '10px' }}>
-            <input
-              type="number"
-              placeholder="Custom Amount"
-              onChange={(e) => handleBetSelection(Number(e.target.value))}
-              style={inputStyle}
-            />
-          </div>
-        </div>
-      )}
-      {gameId && isCreator && isBetSet && (
-        <div>
-          <p>GameID: <strong>{gameId}</strong></p>
-          <p>Selected Bet Amount: <strong>${betAmount}</strong></p>
-          <p>Share this ID with another player to join!</p>
-        </div>
-      )}
-      {gameId && !isCreator && (
-        <div>
-          <p>Joined Game ID: {gameId}</p>
-          {isBetSet ? (
-            <p>Bet Amount: <strong>${betAmount}</strong></p>
-          ) :(
-            <p>Waiting for the creator to select a bet amount...</p>
+          <p>Game ID: {gameId}</p>
+          {winner ? (
+            <div>
+              <h2>{winner === 'Draw' ? "It's a Draw!" : `Winner: ${winner}`}</h2>
+              <button onClick={resetGame} style={buttonStyle}>
+                Start New Game
+              </button>
+            </div>
+          ) : (
+            <div>
+              <h2>Current Player: {currentPlayer}</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 100px)', gap: '10px' }}>
+                {board.map((row, rowIndex) =>
+                  row.map((cell, colIndex) => (
+                    <div
+                      key={`${rowIndex}-${colIndex}`}
+                      onClick={() => handleCellClick(rowIndex, colIndex)}
+                      style={{
+                        width: '100px',
+                        height: '100px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid #ccc',
+                        fontSize: '24px',
+                        fontWeight: 'bold',
+                        cursor: cell || winner ? 'not-allowed' : 'pointer',
+                        backgroundColor: cell ? '#f9f9f9' : '#fff',
+                      }}
+                    >
+                      {cell}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           )}
         </div>
       )}
