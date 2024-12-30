@@ -140,8 +140,29 @@ const generateGameId = () => {
   return Math.random().toString(36).substring(2, 6);
 };
 
+const containerStyle = {
+  minHeight: '100vh',
+  display: 'flex',
+  flexDirection: 'column' as const,
+  alignItems: 'center',
+  padding: '40px 20px',
+  background: 'linear-gradient(to bottom right, #1a1a1a, #2d2d2d)',
+  color: '#ffffff'
+};
+
+const gameContainerStyle = {
+  marginTop: '40px',
+  padding: '30px',
+  borderRadius: '16px',
+  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  backdropFilter: 'blur(10px)',
+  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+  width: '100%',
+  maxWidth: '500px'
+};
+
 const buttonStyle = {
-  backgroundColor: '#FFA500', 
+  backgroundColor: '#FFA500',
   color: 'white',
   padding: '12px 24px',
   borderRadius: '8px',
@@ -149,16 +170,46 @@ const buttonStyle = {
   cursor: 'pointer',
   fontSize: '16px',
   fontWeight: 500,
-  transition: 'background-color 0.2s'
+  transition: 'all 0.2s ease',
+  margin: '10px',
+  width: '200px'
 };
 
 const inputStyle = {
-  padding: '10px',
-  borderRadius: '6px',
-  border: '1px solid #E5E7EB',
-  marginBottom: '10px',
+  padding: '12px',
+  borderRadius: '8px',
+  border: '1px solid rgba(255, 255, 255, 0.2)',
+  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  color: '#ffffff',
   width: '200px',
-  fontSize: '16px'
+  fontSize: '16px',
+  margin: '20px 0',
+  outline: 'none',
+  transition: 'all 0.2s ease'
+};
+
+const boardStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, 100px)',
+  gap: '10px',
+  margin: '30px auto',
+  justifyContent: 'center'
+};
+
+const cellStyle = {
+  width: '100px',
+  height: '100px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: '2px solid rgba(255, 255, 255, 0.2)',
+  borderRadius: '8px',
+  fontSize: '32px',
+  fontWeight: 'bold',
+  cursor: 'pointer',
+  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  transition: 'all 0.2s ease',
+  color: '#ffffff'
 };
 
 const Gameday = () => {
@@ -186,68 +237,78 @@ const Gameday = () => {
   };
 
   return (
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-      <ConnectButton label="Sign in" />
-      {!gameId && (
-        <div>
-          <button onClick={createGame} style={buttonStyle}>
-            Create Game
-          </button>
-          <input
-            type="text"
-            placeholder="Enter Game ID"
-            value={joinId}
-            onChange={(e) => setJoinId(e.target.value)}
-            style={inputStyle}
-          />
-          <button onClick={joinGame} style={buttonStyle}>
-            Join Game
-          </button>
-        </div>
-      )}
-      {gameId && (
-        <div>
-          <p>Game ID: {gameId}</p>
-          <p>You are playing as: {playerSymbol}</p>
-          {winner ? (
-            <div>
-              <h2>{winner === 'Draw' ? "It&apos;s a Draw!" : `Winner: ${winner}`}</h2>
-              <button onClick={resetGame} style={buttonStyle}>
-                Start New Game
+    <div style={containerStyle}>
+      <div style={{ marginBottom: '30px' }}>
+        <ConnectButton label="Sign in" />
+      </div>
+
+      <div style={gameContainerStyle}>
+        {!gameId ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+            <h1 style={{ fontSize: '24px', marginBottom: '20px' }}>Tic Tac Toe</h1>
+            <button onClick={createGame} style={buttonStyle}>
+              Create Game
+            </button>
+            <div style={{ textAlign: 'center', margin: '20px 0' }}>
+              <p style={{ marginBottom: '10px' }}>- OR -</p>
+              <input
+                type="text"
+                placeholder="Enter Game ID"
+                value={joinId}
+                onChange={(e) => setJoinId(e.target.value)}
+                style={inputStyle}
+              />
+              <button onClick={joinGame} style={buttonStyle}>
+                Join Game
               </button>
             </div>
-          ) : (
-            <div>
-              <h2>Current Player: {currentPlayer}</h2>
-              {!isMyTurn && <p>Waiting for other player&apos;s move...</p>}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 100px)', gap: '10px' }}>
-                {board.map((row, rowIndex) =>
-                  row.map((cell, colIndex) => (
-                    <div
-                      key={`${rowIndex}-${colIndex}`}
-                      onClick={() => handleCellClick(rowIndex, colIndex)}
-                      style={{
-                        width: '100px',
-                        height: '100px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: '1px solid #ccc',
-                        fontSize: '24px',
-                        fontWeight: 'bold',
-                        cursor: cell || winner ? 'not-allowed' : 'pointer',
-                        backgroundColor: cell ? '#f9f9f9' : '#fff',
-                      }}
-                    >
-                      {cell}
-                    </div>
-                  ))
-                )}
-              </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '18px' }}>Game ID: <span style={{ color: '#FFA500' }}>{gameId}</span></p>
+              <p style={{ fontSize: '18px' }}>Playing as: <span style={{ color: '#FFA500' }}>{playerSymbol}</span></p>
             </div>
-          )}
-        </div>
-      )}
+
+            {winner ? (
+              <div style={{ textAlign: 'center' }}>
+                <h2 style={{ fontSize: '28px', marginBottom: '20px' }}>
+                  {winner === 'Draw' ? "A Draw!" : `Winner: ${winner}`}
+                </h2>
+                <button onClick={resetGame} style={buttonStyle}>
+                  Start New Game
+                </button>
+              </div>
+            ) : (
+              <div>
+                <h2 style={{ fontSize: '24px', marginBottom: '10px' }}>Current Player: {currentPlayer}</h2>
+                {!isMyTurn && (
+                  <p style={{ color: '#FFA500', marginBottom: '20px' }}>
+                    Waiting for other player&apos;s move...
+                  </p>
+                )}
+                <div style={boardStyle}>
+                  {board.map((row, rowIndex) =>
+                    row.map((cell, colIndex) => (
+                      <div
+                        key={`${rowIndex}-${colIndex}`}
+                        onClick={() => handleCellClick(rowIndex, colIndex)}
+                        style={{
+                          ...cellStyle,
+                          cursor: cell || winner || !isMyTurn ? 'not-allowed' : 'pointer',
+                          backgroundColor: cell ? 'rgba(255, 165, 0, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                        }}
+                      >
+                        {cell}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
