@@ -15,13 +15,17 @@ let socket: Socket;
 
 const initSocket = () => {
   if (!socket) {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000';
+    const socketUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://gameday-nine.vercel.app'
+      : 'http://localhost:3000';
+
     socket = io(socketUrl, {
       path: '/api/socket',
       withCredentials: true,
-      transports: ['websocket', 'polling']
+      transports: ['polling', 'websocket'],
+      autoConnect: true,
+      reconnection: true
     });
-    console.log('Socket initialized with URL:', socketUrl);
   }
   return socket;
 };
@@ -56,7 +60,6 @@ const calculateWinner = (board: (string | null)[][]) => {
 type Board = (string | null)[][];
 
 const useSocket = (gameId: string) => {
-  
   const [board, setBoard] = useState<Board>([
     [null, null, null],
     [null, null, null],
@@ -64,38 +67,46 @@ const useSocket = (gameId: string) => {
   ]);
   const [currentPlayer, setCurrentPlayer] = useState('X');
   const [winner, setWinner] = useState<string | null>(null);
+  const [isMyTurn, setIsMyTurn] = useState(false);
+  const [playerSymbol, setPlayerSymbol] = useState<'X' | 'O' | null>(null);
 
   useEffect(() => {
     const socket = initSocket();
 
     if (gameId) {
       socket.emit('join-game', gameId);
+      socket.on('player-assigned', ({ symbol }) => {
+        setPlayerSymbol(symbol);
+        setIsMyTurn(symbol === 'X'); 
+      });
 
       socket.on('update-board', ({ boardState, currentTurn, winner }) => {
-        
         setBoard(boardState as Board);
         setCurrentPlayer(currentTurn);
+        setIsMyTurn(currentTurn === playerSymbol);
         setWinner(winner);
       });
     }
 
     return () => {
       socket.off('update-board');
+      socket.off('player-assigned');
       socket.emit('leave-game', gameId);
     };
-  }, [gameId]);
+  }, [gameId, playerSymbol]);
 
   const makeMove = (row: number, col: number) => {
-    if (!board[row][col] && !winner) {
+    if (!board[row][col] && !winner && isMyTurn && playerSymbol) {
       const updatedBoard = board.map((r, i) =>
-        i === row ? r.map((cell, j) => (j === col ? currentPlayer : cell)) : r
+        i === row ? r.map((cell, j) => (j === col ? playerSymbol : cell)) : r
       );
 
-      const nextTurn = currentPlayer === 'X' ? 'O' : 'X';
-
+      const nextTurn = playerSymbol === 'X' ? 'O' : 'X';
       const winner = calculateWinner(updatedBoard);
+
       setBoard(updatedBoard);
       setCurrentPlayer(nextTurn);
+      setIsMyTurn(false);
       setWinner(winner);
 
       initSocket().emit('make-move', {
@@ -107,7 +118,7 @@ const useSocket = (gameId: string) => {
     }
   };
 
-  return { board, currentPlayer, winner, makeMove };
+  return { board, currentPlayer, winner, makeMove, isMyTurn, playerSymbol };
 };
 
 
@@ -130,7 +141,7 @@ const generateGameId = () => {
 };
 
 const buttonStyle = {
-  backgroundColor: '#FFA500', // Light Orange
+  backgroundColor: '#FFA500', 
   color: 'white',
   padding: '12px 24px',
   borderRadius: '8px',
@@ -153,7 +164,7 @@ const inputStyle = {
 const Gameday = () => {
   const [gameId, setGameId] = useState('');
   const [joinId, setJoinId] = useState('');
-  const { board, currentPlayer, winner, makeMove } = useSocket(gameId);
+  const { board, currentPlayer, winner, makeMove, isMyTurn, playerSymbol } = useSocket(gameId);
 
   const createGame = () => {
     const id = generateGameId();
@@ -197,6 +208,7 @@ const Gameday = () => {
       {gameId && (
         <div>
           <p>Game ID: {gameId}</p>
+          <p>You are playing as: {playerSymbol}</p>
           {winner ? (
             <div>
               <h2>{winner === 'Draw' ? "It's a Draw!" : `Winner: ${winner}`}</h2>
@@ -207,6 +219,7 @@ const Gameday = () => {
           ) : (
             <div>
               <h2>Current Player: {currentPlayer}</h2>
+              {!isMyTurn && <p>Waiting for other player's move...</p>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 100px)', gap: '10px' }}>
                 {board.map((row, rowIndex) =>
                   row.map((cell, colIndex) => (
