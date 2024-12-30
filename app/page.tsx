@@ -211,7 +211,7 @@ const Gameday = () => {
           <p>You are playing as: {playerSymbol}</p>
           {winner ? (
             <div>
-              <h2>{winner === 'Draw' ? "It's a Draw!" : `Winner: ${winner}`}</h2>
+              <h2>{winner === 'Draw' ? "It&apos;s a Draw!" : `Winner: ${winner}`}</h2>
               <button onClick={resetGame} style={buttonStyle}>
                 Start New Game
               </button>
@@ -219,7 +219,7 @@ const Gameday = () => {
           ) : (
             <div>
               <h2>Current Player: {currentPlayer}</h2>
-              {!isMyTurn && <p>Waiting for other player's move...</p>}
+              {!isMyTurn && <p>Waiting for other player&apos;s move...</p>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 100px)', gap: '10px' }}>
                 {board.map((row, rowIndex) =>
                   row.map((cell, colIndex) => (
