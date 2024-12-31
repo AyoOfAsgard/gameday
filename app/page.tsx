@@ -16,7 +16,6 @@ import { CONTRACT_ADDRESS, CONTRACT_ABI } from './config/contract';
 
 let socket: Socket;
 
-
 const initSocket = () => {
   if (!socket) {
     const socketUrl = process.env.NODE_ENV === 'production' 
@@ -59,7 +58,6 @@ const calculateWinner = (board: (string | null)[][]) => {
   if (board.flat().every(cell => cell !== null)) return 'Draw';
   return null;
 };
-
 
 type Board = (string | null)[][];
 
@@ -132,8 +130,6 @@ const useSocket = (gameId: string) => {
   return { board, currentPlayer, winner, makeMove, isMyTurn, playerSymbol, betAmount };
 };
 
-
-
 export default function Home() {
   return (
     <WagmiProvider config={config}>
@@ -146,11 +142,11 @@ export default function Home() {
   );
 }
 
-
 const generateGameId = () => {
   return Math.random().toString(36).substring(2, 6);
 };
 
+// Styles remain the same
 const containerStyle = {
   minHeight: '100vh',
   display: 'flex',
@@ -228,8 +224,9 @@ const Gameday = () => {
   const { 
     createNewGame, 
     joinExistingGame, 
-    endCurrentGame, 
-    getGameData 
+    endCurrentGame,
+    gameData: currentGameData,
+    isGameDataLoading 
   } = useGameContract();
   const [gameId, setGameId] = useState('');
   const [joinId, setJoinId] = useState('');
@@ -237,7 +234,15 @@ const Gameday = () => {
   const [isCreator, setIsCreator] = useState(false);
   const { board, currentPlayer, winner, makeMove, isMyTurn, playerSymbol, betAmount: socketBetAmount } = useSocket(gameId);
   const [customAmount, setCustomAmount] = useState<string>('');
-  const { data: gameData } = getGameData(gameId);
+
+  // Move the contract read hook to the component level
+  const { data: joinGameData } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: 'getGame',
+    args: [joinId],
+    enabled: !!joinId, // Only fetch when joinId is available
+  });
 
   const handleBetSelection = async (amount: number) => {
     if (amount > 0) {
@@ -275,29 +280,22 @@ const Gameday = () => {
         return;
       }
 
-      const { data: gameInfo } = useReadContract({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI,
-        functionName: 'getGame',
-        args: [joinId],
-      });
-
-      if (!gameInfo) {
+      if (!joinGameData) {
         alert('Game not found');
         return;
       }
 
-      if (!gameInfo.isActive) {
+      if (!joinGameData.isActive) {
         alert('Game is no longer active');
         return;
       }
 
-      if (gameInfo.joiner !== '0x0000000000000000000000000000000000000000') {
+      if (joinGameData.joiner !== '0x0000000000000000000000000000000000000000') {
         alert('Game is full');
         return;
       }
 
-      const betAmountInEth = Number(gameInfo.betAmount) / 1e18;
+      const betAmountInEth = Number(joinGameData.betAmount) / 1e18;
       const shouldJoin = confirm(`Join game with bet amount: ${betAmountInEth} ETH?`);
       
       if (shouldJoin) {
@@ -323,7 +321,7 @@ const Gameday = () => {
 
   const handleGameEnd = async (winner: string) => {
     try {
-      if (gameData && (address === gameData.creator || address === gameData.joiner)) {
+      if (currentGameData && (address === currentGameData.creator || address === currentGameData.joiner)) {
         await endCurrentGame(gameId, winner);
         setGameId('');
       }
@@ -333,11 +331,11 @@ const Gameday = () => {
   };
 
   useEffect(() => {
-    if (winner && gameData && gameData.isActive) {
-      const winnerAddress = winner === 'X' ? gameData.creator : gameData.joiner;
+    if (winner && currentGameData && currentGameData.isActive) {
+      const winnerAddress = winner === 'X' ? currentGameData.creator : currentGameData.joiner;
       handleGameEnd(winnerAddress);
     }
-  }, [winner, gameData]);
+  }, [winner, currentGameData]);
 
   return (
     <div style={containerStyle}>
@@ -350,9 +348,9 @@ const Gameday = () => {
           <div style={{ textAlign: 'center' }}>
             <h2 style={{ marginBottom: '20px' }}>Please connect your wallet to play</h2>
           </div>
-        ) : gameData?.isActive && gameData?.joiner === address ? (
+        ) : currentGameData?.isActive && currentGameData?.joiner === address ? (
           <div style={{ textAlign: 'center' }}>
-            <h2>Waiting for opponent to match bet of {gameData.betAmount} ETH</h2>
+            <h2>Waiting for opponent to match bet of {currentGameData.betAmount} ETH</h2>
           </div>
         ) : !gameId ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
