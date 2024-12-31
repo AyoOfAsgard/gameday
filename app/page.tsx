@@ -1,7 +1,7 @@
 'use client'
 
 import '@rainbow-me/rainbowkit/styles.css';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getDefaultConfig, RainbowKitProvider} from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
 import { base } from 'wagmi/chains';
@@ -226,7 +226,6 @@ const Gameday = () => {
     joinExistingGame, 
     endCurrentGame,
     gameData: currentGameData,
-    isGameDataLoading 
   } = useGameContract();
   const [gameId, setGameId] = useState('');
   const [joinId, setJoinId] = useState('');
@@ -319,7 +318,7 @@ const Gameday = () => {
     makeMove(row, col);
   };
 
-  const handleGameEnd = async (winner: string) => {
+  const handleGameEnd = useCallback(async (winner: string) => {
     try {
       if (currentGameData && (address === currentGameData.creator || address === currentGameData.joiner)) {
         await endCurrentGame(gameId, winner);
@@ -328,14 +327,14 @@ const Gameday = () => {
     } catch (error) {
       console.error('Error ending game:', error);
     }
-  };
+  }, [currentGameData, address, endCurrentGame, gameId, setGameId]);
 
   useEffect(() => {
     if (winner && currentGameData && currentGameData.isActive) {
       const winnerAddress = winner === 'X' ? currentGameData.creator : currentGameData.joiner;
       handleGameEnd(winnerAddress);
     }
-  }, [winner, currentGameData]);
+  }, [winner, currentGameData, handleGameEnd]);
 
   return (
     <div style={containerStyle}>

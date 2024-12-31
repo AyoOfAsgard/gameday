@@ -14,12 +14,14 @@ export function useGameContract(initialGameId: string = '') {
   const { writeContract: createGameWrite } = useWriteContract();
   const { writeContract: joinGameWrite } = useWriteContract();
   const { writeContract: endGameWrite } = useWriteContract();
-  const { data: gameData } = useReadContract({
+  
+  // Single source of game data reading
+  const { data: currentGameData, isLoading: isGameDataLoading } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI,
     functionName: 'getGame',
     args: [initialGameId],
-  }) as { data: GameData | undefined };
+  }) as { data: GameData | undefined; isLoading: boolean };
 
   const createNewGame = async (gameId: string, betAmount: number) => {
     if (!createGameWrite) throw new Error('Contract write not ready');
@@ -34,15 +36,8 @@ export function useGameContract(initialGameId: string = '') {
 
   const joinExistingGame = async (gameId: string, betAmount: number) => {
     if (!joinGameWrite) throw new Error('Contract write not ready');
-    const { data: gameInfo } = useReadContract({
-      address: CONTRACT_ADDRESS,
-      abi: CONTRACT_ABI,
-      functionName: 'getGame',
-      args: [gameId],
-    }) as { data: GameData | undefined };
     
-    if (!gameInfo) throw new Error('Game not found');
-    
+   
     await joinGameWrite({
       address: CONTRACT_ADDRESS,
       abi: CONTRACT_ABI,
@@ -61,14 +56,6 @@ export function useGameContract(initialGameId: string = '') {
       args: [gameId, winner],
     });
   };
-
-  // Instead of a separate function, we return the data and loading state directly
-  const { data: currentGameData, isLoading: isGameDataLoading } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: CONTRACT_ABI,
-    functionName: 'getGame',
-    args: [initialGameId],
-  }) as { data: GameData | undefined; isLoading: boolean };
 
   return {
     createNewGame,
