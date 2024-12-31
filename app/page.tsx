@@ -10,6 +10,9 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Socket } from 'socket.io-client';
 import io from 'socket.io-client';
 import { useAccount } from 'wagmi';
+import { useGameContract } from './hooks/useGameContract';
+import { useReadContract } from 'wagmi';
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from './config/contract';
 
 let socket: Socket;
 
@@ -80,7 +83,7 @@ const useSocket = (gameId: string) => {
       
       socket.on('player-assigned', ({ symbol }) => {
         setPlayerSymbol(symbol);
-        setIsMyTurn(symbol === 'X');
+        setIsMyTurn(symbol === 'X'); 
       });
 
       socket.on('update-board', ({ boardState, currentTurn, winner }) => {
@@ -221,18 +224,30 @@ const cellStyle = {
 };
 
 const Gameday = () => {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const { 
+    createNewGame, 
+    joinExistingGame, 
+    endCurrentGame, 
+    getGameData 
+  } = useGameContract();
   const [gameId, setGameId] = useState('');
   const [joinId, setJoinId] = useState('');
   const [isBetSet, setIsBetSet] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
   const { board, currentPlayer, winner, makeMove, isMyTurn, playerSymbol, betAmount: socketBetAmount } = useSocket(gameId);
   const [customAmount, setCustomAmount] = useState<string>('');
+  const { data: gameData } = getGameData(gameId);
 
-  const handleBetSelection = (amount: number) => {
+  const handleBetSelection = async (amount: number) => {
     if (amount > 0) {
-      setIsBetSet(true);
-      initSocket().emit('set-bet', { gameId, betAmount: amount });
+      try {
+        await createNewGame(gameId, amount);
+        setIsBetSet(true);
+        initSocket().emit('set-bet', { gameId, betAmount: amount });
+      } catch (error) {
+        console.error('Error setting bet:', error);
+      }
     }
   };
 
@@ -243,15 +258,57 @@ const Gameday = () => {
     }
   };
 
-  const createGame = () => {
+  const createGame = async () => {
     const id = generateGameId();
-    setGameId(id);
-    setIsCreator(true);
+    try {
+      setGameId(id);
+      setIsCreator(true);
+    } catch (error) {
+      console.error('Error creating game:', error);
+    }
   };
 
-  const joinGame = () => {
-    setGameId(joinId);
-    setIsCreator(false);
+  const joinGame = async () => {
+    try {
+      if (!joinId) {
+        alert('Please enter a game ID');
+        return;
+      }
+
+      const { data: gameInfo } = useReadContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: 'getGame',
+        args: [joinId],
+      });
+
+      if (!gameInfo) {
+        alert('Game not found');
+        return;
+      }
+
+      if (!gameInfo.isActive) {
+        alert('Game is no longer active');
+        return;
+      }
+
+      if (gameInfo.joiner !== '0x0000000000000000000000000000000000000000') {
+        alert('Game is full');
+        return;
+      }
+
+      const betAmountInEth = Number(gameInfo.betAmount) / 1e18;
+      const shouldJoin = confirm(`Join game with bet amount: ${betAmountInEth} ETH?`);
+      
+      if (shouldJoin) {
+        await joinExistingGame(joinId, betAmountInEth);
+        setGameId(joinId);
+        setIsCreator(false);
+      }
+    } catch (error) {
+      console.error('Error joining game:', error);
+      alert('Failed to join game. See console for details.');
+    }
   };
 
   const resetGame = () => {
@@ -264,6 +321,24 @@ const Gameday = () => {
     makeMove(row, col);
   };
 
+  const handleGameEnd = async (winner: string) => {
+    try {
+      if (gameData && (address === gameData.creator || address === gameData.joiner)) {
+        await endCurrentGame(gameId, winner);
+        setGameId('');
+      }
+    } catch (error) {
+      console.error('Error ending game:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (winner && gameData && gameData.isActive) {
+      const winnerAddress = winner === 'X' ? gameData.creator : gameData.joiner;
+      handleGameEnd(winnerAddress);
+    }
+  }, [winner, gameData]);
+
   return (
     <div style={containerStyle}>
       <div style={{ marginBottom: '30px' }}>
@@ -274,6 +349,10 @@ const Gameday = () => {
         {!isConnected ? (
           <div style={{ textAlign: 'center' }}>
             <h2 style={{ marginBottom: '20px' }}>Please connect your wallet to play</h2>
+          </div>
+        ) : gameData?.isActive && gameData?.joiner === address ? (
+          <div style={{ textAlign: 'center' }}>
+            <h2>Waiting for opponent to match bet of {gameData.betAmount} ETH</h2>
           </div>
         ) : !gameId ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
