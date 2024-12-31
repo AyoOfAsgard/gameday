@@ -9,6 +9,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Socket } from 'socket.io-client';
 import io from 'socket.io-client';
+import { useAccount } from 'wagmi';
 
 let socket: Socket;
 
@@ -69,15 +70,17 @@ const useSocket = (gameId: string) => {
   const [winner, setWinner] = useState<string | null>(null);
   const [isMyTurn, setIsMyTurn] = useState(false);
   const [playerSymbol, setPlayerSymbol] = useState<'X' | 'O' | null>(null);
+  const [betAmount, setBetAmount] = useState<number>(0);
 
   useEffect(() => {
     const socket = initSocket();
 
     if (gameId) {
       socket.emit('join-game', gameId);
+      
       socket.on('player-assigned', ({ symbol }) => {
         setPlayerSymbol(symbol);
-        setIsMyTurn(symbol === 'X'); 
+        setIsMyTurn(symbol === 'X');
       });
 
       socket.on('update-board', ({ boardState, currentTurn, winner }) => {
@@ -86,11 +89,16 @@ const useSocket = (gameId: string) => {
         setIsMyTurn(currentTurn === playerSymbol);
         setWinner(winner);
       });
+
+      socket.on('bet-set', ({ amount }) => {
+        setBetAmount(amount);
+      });
     }
 
     return () => {
       socket.off('update-board');
       socket.off('player-assigned');
+      socket.off('bet-set');
       socket.emit('leave-game', gameId);
     };
   }, [gameId, playerSymbol]);
@@ -118,7 +126,7 @@ const useSocket = (gameId: string) => {
     }
   };
 
-  return { board, currentPlayer, winner, makeMove, isMyTurn, playerSymbol };
+  return { board, currentPlayer, winner, makeMove, isMyTurn, playerSymbol, betAmount };
 };
 
 
@@ -213,17 +221,39 @@ const cellStyle = {
 };
 
 const Gameday = () => {
+  const { isConnected } = useAccount();
   const [gameId, setGameId] = useState('');
   const [joinId, setJoinId] = useState('');
-  const { board, currentPlayer, winner, makeMove, isMyTurn, playerSymbol } = useSocket(gameId);
+  const [localBetAmount, setBetAmount] = useState<number>(0);
+  const [isBetSet, setIsBetSet] = useState(false);
+  const [isCreator, setIsCreator] = useState(false);
+  const { board, currentPlayer, winner, makeMove, isMyTurn, playerSymbol, betAmount: socketBetAmount } = useSocket(gameId);
+  const [customAmount, setCustomAmount] = useState<string>('');
+
+  const handleBetSelection = (amount: number) => {
+    if (amount > 0) {
+      setBetAmount(amount);
+      setIsBetSet(true);
+      initSocket().emit('set-bet', { gameId, betAmount: amount });
+    }
+  };
+
+  const handleCustomBetSubmit = () => {
+    const amount = parseFloat(customAmount);
+    if (!isNaN(amount) && amount > 0) {
+      handleBetSelection(amount);
+    }
+  };
 
   const createGame = () => {
     const id = generateGameId();
     setGameId(id);
+    setIsCreator(true);
   };
 
   const joinGame = () => {
     setGameId(joinId);
+    setIsCreator(false);
   };
 
   const resetGame = () => {
@@ -243,7 +273,11 @@ const Gameday = () => {
       </div>
 
       <div style={gameContainerStyle}>
-        {!gameId ? (
+        {!isConnected ? (
+          <div style={{ textAlign: 'center' }}>
+            <h2 style={{ marginBottom: '20px' }}>Please connect your wallet to play</h2>
+          </div>
+        ) : !gameId ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
             <h1 style={{ fontSize: '24px', marginBottom: '20px' }}>Tic Tac Toe</h1>
             <button onClick={createGame} style={buttonStyle}>
@@ -263,11 +297,47 @@ const Gameday = () => {
               </button>
             </div>
           </div>
+        ) : !isBetSet && isCreator ? (
+          <div style={{ textAlign: 'center' }}>
+            <h2 style={{ marginBottom: '20px' }}>Select Bet Amount</h2>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
+              {[0.01, 0.05, 0.1].map((amount) => (
+                <button
+                  key={amount}
+                  onClick={() => handleBetSelection(amount)}
+                  style={buttonStyle}
+                >
+                  {amount} ETH
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+              <input
+                type="number"
+                placeholder="Custom amount (ETH)"
+                value={customAmount}
+                onChange={(e) => setCustomAmount(e.target.value)}
+                step="0.01"
+                min="0.01"
+                style={inputStyle}
+              />
+              <button 
+                onClick={handleCustomBetSubmit}
+                style={buttonStyle}
+                disabled={!customAmount || parseFloat(customAmount) <= 0}
+              >
+                Set Custom Bet
+              </button>
+            </div>
+          </div>
         ) : (
           <div>
             <div style={{ marginBottom: '20px' }}>
               <p style={{ fontSize: '18px' }}>Game ID: <span style={{ color: '#FFA500' }}>{gameId}</span></p>
               <p style={{ fontSize: '18px' }}>Playing as: <span style={{ color: '#FFA500' }}>{playerSymbol}</span></p>
+              {socketBetAmount > 0 && (
+                <p style={{ fontSize: '18px' }}>Bet Amount: <span style={{ color: '#FFA500' }}>{socketBetAmount} ETH</span></p>
+              )}
             </div>
 
             {winner ? (

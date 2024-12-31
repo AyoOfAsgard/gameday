@@ -54,6 +54,11 @@ export default function handler(req, res) {
     socket.on('disconnect', () => {
       console.log('Player disconnected:', socket.id);
     });
+
+    socket.on('set-bet', ({ gameId, betAmount }) => {
+      console.log(`Bet set for game ${gameId}: ${betAmount} ETH`);
+      io.to(gameId).emit('bet-set', { amount: betAmount });
+    });
   });
 
   res.end();
