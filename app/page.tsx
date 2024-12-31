@@ -224,7 +224,6 @@ const Gameday = () => {
   const { isConnected } = useAccount();
   const [gameId, setGameId] = useState('');
   const [joinId, setJoinId] = useState('');
-  const [localBetAmount, setBetAmount] = useState<number>(0);
   const [isBetSet, setIsBetSet] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
   const { board, currentPlayer, winner, makeMove, isMyTurn, playerSymbol, betAmount: socketBetAmount } = useSocket(gameId);
@@ -232,7 +231,6 @@ const Gameday = () => {
 
   const handleBetSelection = (amount: number) => {
     if (amount > 0) {
-      setBetAmount(amount);
       setIsBetSet(true);
       initSocket().emit('set-bet', { gameId, betAmount: amount });
     }
