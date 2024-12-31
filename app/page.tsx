@@ -17,15 +17,25 @@ let socket: Socket;
 const initSocket = () => {
   if (!socket) {
     const socketUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://gameday-nine.vercel.app'
+      ? 'wss://gameday-nine.vercel.app'
       : 'http://localhost:3000';
 
     socket = io(socketUrl, {
       path: '/api/socket',
       withCredentials: true,
-      transports: ['polling', 'websocket'],
+      transports: ['websocket', 'polling'],
       autoConnect: true,
-      reconnection: true
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+
+    socket.on('connect', () => {
+      console.log('Socket connected');
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
     });
   }
   return socket;

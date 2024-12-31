@@ -11,14 +11,15 @@ export default function handler(req, res) {
   io = new Server(res.socket.server, {
     path: '/api/socket',
     cors: {
-      origin: process.env.NODE_ENV === 'production' 
-        ? 'https://gameday-nine.vercel.app' 
-        : 'http://localhost:3000',
+      origin: '*',
       methods: ['GET', 'POST'],
-      credentials: true
+      credentials: true,
+      allowedHeaders: ['*']
     },
-    transports: ['polling', 'websocket'],
-    allowEIO3: true
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000
   });
 
   res.socket.server.io = io;
@@ -59,6 +60,10 @@ export default function handler(req, res) {
       console.log(`Bet set for game ${gameId}: ${betAmount} ETH`);
       io.to(gameId).emit('bet-set', { amount: betAmount });
     });
+  });
+
+  io.on('connect_error', (error) => {
+    console.error('Socket connection error:', error);
   });
 
   res.end();

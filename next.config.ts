@@ -8,7 +8,8 @@ const nextConfig = {
           { key: "Access-Control-Allow-Credentials", value: "true" },
           { key: "Access-Control-Allow-Origin", value: "*" },
           { key: "Access-Control-Allow-Methods", value: "GET,POST,OPTIONS" },
-          { key: "Access-Control-Allow-Headers", value: "Content-Type" },
+          { key: "Access-Control-Allow-Headers", value: "*" },
+          { key: "Content-Security-Policy", value: "upgrade-insecure-requests" },
         ],
       },
     ];

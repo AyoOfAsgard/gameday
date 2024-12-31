@@ -2,26 +2,28 @@ import { useWriteContract, useReadContract } from 'wagmi';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../config/contract';
 import { parseEther } from 'viem';
 
-interface GameData {
+type GameData = {
   creator: string;
   joiner: string;
   betAmount: bigint;
   isActive: boolean;
   winner: string;
-}
+};
 
-export function useGameContract(initialGameId: string = '') {
+export function useGameContract(gameId: string = '') {
   const { writeContract: createGameWrite } = useWriteContract();
   const { writeContract: joinGameWrite } = useWriteContract();
   const { writeContract: endGameWrite } = useWriteContract();
-  
-  // Single source of game data reading
-  const { data: currentGameData, isLoading: isGameDataLoading } = useReadContract({
+
+  const { data: gameData } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI,
     functionName: 'getGame',
-    args: [initialGameId],
-  }) as { data: GameData | undefined; isLoading: boolean };
+    args: [gameId],
+    query: {
+      enabled: Boolean(gameId)
+    }
+  }) as { data: GameData | undefined };
 
   const createNewGame = async (gameId: string, betAmount: number) => {
     if (!createGameWrite) throw new Error('Contract write not ready');
@@ -36,8 +38,6 @@ export function useGameContract(initialGameId: string = '') {
 
   const joinExistingGame = async (gameId: string, betAmount: number) => {
     if (!joinGameWrite) throw new Error('Contract write not ready');
-    
-   
     await joinGameWrite({
       address: CONTRACT_ADDRESS,
       abi: CONTRACT_ABI,
@@ -61,7 +61,6 @@ export function useGameContract(initialGameId: string = '') {
     createNewGame,
     joinExistingGame,
     endCurrentGame,
-    gameData: currentGameData,
-    isGameDataLoading,
+    gameData,
   };
 }
