@@ -9,7 +9,6 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Socket } from 'socket.io-client';
 import io from 'socket.io-client';
-import { parseAbiItem } from 'viem';
 import { useGameContract } from './hooks/useGameContract';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from './config/contract';
 
@@ -59,14 +58,6 @@ const calculateWinner = (board: (string | null)[][]) => {
 };
 
 type Board = (string | null)[][];
-
-type Game = {
-  creator: string;
-  joiner: string;
-  betAmount: bigint;
-  isActive: boolean;
-  winner: string;
-};
 
 type GameReturnType = [string, string, bigint, boolean, string] & {
   creator: string;
