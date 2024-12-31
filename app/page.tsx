@@ -3,15 +3,14 @@
 import '@rainbow-me/rainbowkit/styles.css';
 import { useEffect, useState, useCallback } from 'react';
 import { getDefaultConfig, RainbowKitProvider} from '@rainbow-me/rainbowkit';
-import { WagmiProvider } from 'wagmi';
+import { WagmiProvider, useReadContract, useAccount } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Socket } from 'socket.io-client';
 import io from 'socket.io-client';
-import { useAccount } from 'wagmi';
+import { parseAbiItem } from 'viem';
 import { useGameContract } from './hooks/useGameContract';
-import { useReadContract } from 'wagmi';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from './config/contract';
 
 let socket: Socket;
@@ -60,6 +59,23 @@ const calculateWinner = (board: (string | null)[][]) => {
 };
 
 type Board = (string | null)[][];
+
+type Game = {
+  creator: string;
+  joiner: string;
+  betAmount: bigint;
+  isActive: boolean;
+  winner: string;
+};
+
+type GameReturnType = [string, string, bigint, boolean, string] & {
+  creator: string;
+  joiner: string;
+  betAmount: bigint;
+  isActive: boolean;
+  winner: string;
+};
+
 
 const useSocket = (gameId: string) => {
   const [board, setBoard] = useState<Board>([
@@ -240,8 +256,10 @@ const Gameday = () => {
     abi: CONTRACT_ABI,
     functionName: 'getGame',
     args: [joinId],
-    enabled: !!joinId, // Only fetch when joinId is available
-  });
+    query: {
+      enabled: Boolean(joinId)
+    }
+  }) as { data: GameReturnType | undefined };
 
   const handleBetSelection = async (amount: number) => {
     if (amount > 0) {
